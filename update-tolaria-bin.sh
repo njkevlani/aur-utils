@@ -33,7 +33,7 @@ if [ "$latest_tag_name" == "null" ] || [ -z "$latest_tag_name" ]; then
 fi
 
 # Extract version from tag_name (e.g., stable-v2026.4.25 -> 2026.4.25)
-latest_pkgver=$(echo "$latest_tag_name" | sed 's/^v//' | sed 's/-/./g')
+latest_pkgver=$(echo "$latest_tag_name" | sed 's/^v//' | sed 's/-/./g' | sed 's/\.0/\./g')
 
 echo "Latest upstream pkgver: $latest_pkgver"
 
@@ -58,25 +58,16 @@ sed -i "s/^pkgver=.*/pkgver=$latest_pkgver/" "$PKGBUILD_PATH"
 current_pkgrel=$(grep "pkgrel=" "$PKGBUILD_PATH" | cut -d'=' -f2)
 new_pkgrel=1 # Default to 1 for new versions
 
-# Check if pkgver was *actually* updated in the current run (already updated in PKGBUILD)
-# If new pkgver is the same as the old one (meaning only pkgrel should be incremented)
-# This comparison is based on the assumption that the sed command for pkgver has already run.
-# A more robust way would be to pass the old_pkgver and new_pkgver to this section.
-# For simplicity, we'll assume a version update implies pkgrel reset to 1,
-# and if there's no version update, this section wouldn't be reached (due to exit 0).
-# However, if this script were to be expanded to handle other changes to PKGBUILD
-# without a pkgver change, then an increment would be needed.
-# Given the current scope (only updating for new pkgver), resetting to 1 is correct.
-# If there are any other changes that don't involve a pkgver bump, they should not trigger this script.
-
 # The current logic of the script implies that if we reach this point, there IS a new pkgver.
 # Therefore, pkgrel *should* be reset to 1.
-# The original script incremented pkgrel. Let's make it reset to 1.
 new_pkgrel=1
 sed -i "s/^pkgrel=.*/pkgrel=$new_pkgrel/" "$PKGBUILD_PATH"
 
+# Update source URL in PKGBUILD
+sed -i "s|^source=.*|source=(\"https://github.com/${repo_owner}/${repo_name}/releases/download/${latest_tag_name}/Tolaria_${latest_pkgver}_amd64.deb\")|" "$PKGBUILD_PATH"
+
 # Construct new source URL and download the file
-new_source_url="https://github.com/${repo_owner}/${repo_name}/releases/download/stable-v${latest_pkgver}/Tolaria_${latest_pkgver}_amd64.deb"
+new_source_url="https://github.com/${repo_owner}/${repo_name}/releases/download/${latest_tag_name}/Tolaria_${latest_pkgver}_amd64.deb"
 download_filename="Tolaria_${latest_pkgver}_amd64.deb"
 
 echo "Downloading new source: $new_source_url"
