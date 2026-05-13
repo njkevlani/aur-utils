@@ -32,8 +32,8 @@ if [ "$latest_tag_name" == "null" ] || [ -z "$latest_tag_name" ]; then
     exit 1
 fi
 
-# Extract version from tag_name (e.g., stable-v2026.4.25 -> 2026.4.25)
-latest_pkgver=$(echo "$latest_tag_name" | sed 's/^v//' | sed 's/-/./g' | sed 's/\.0/\./g')
+# Extract version from tag_name (e.g., stable-v2026.4.25 or v2026-05-12 -> 2026.4.25)
+latest_pkgver=$(echo "$latest_tag_name" | sed 's/^.*v//' | sed 's/-/./g' | sed 's/\.0/\./g')
 
 echo "Latest upstream pkgver: $latest_pkgver"
 
