@@ -1,0 +1,68 @@
+name: Update openlogi-bin
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-openlogi-bin
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out updater
+        uses: actions/checkout@v4
+
+      - name: Configure AUR SSH access
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+      - name: Trust the AUR host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Clone openlogi-bin
+        run: git clone ssh://aur@aur.archlinux.org/openlogi-bin.git openlogi-bin
+
+      - name: Update package metadata
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            archlinux:base \
+            bash -c '
+              set -euo pipefail
+              pacman -Sy --noconfirm --needed base-devel curl jq libarchive
+              useradd --create-home builder
+              chown -R builder:builder /workspace/openlogi-bin
+              su builder -c "cd /workspace/openlogi-bin && /workspace/update-openlogi.sh"
+              su builder -c "cd /workspace/openlogi-bin && makepkg -fc --noconfirm"
+              pacman -U --noconfirm /workspace/openlogi-bin/openlogi-bin-*.pkg.tar.*
+              openlogi --help
+              rm -f /workspace/openlogi-bin/*.pkg.tar.* /workspace/openlogi-bin/data.tar.gz
+              chown -R "$(stat -c %u /workspace):$(stat -c %g /workspace)" /workspace/openlogi-bin
+            '
+
+      - name: Commit and push update
+        working-directory: openlogi-bin
+        run: |
+          if git diff --quiet -- PKGBUILD .SRCINFO; then
+            echo "No package update was needed."
+            exit 0
+          fi
+
+          pkgver=$(grep -m1 '^pkgver=' PKGBUILD | cut -d= -f2-)
+          pkgrel=$(grep -m1 '^pkgrel=' PKGBUILD | cut -d= -f2-)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "upgpkg: openlogi-bin ${pkgver}-${pkgrel}"
+          git push origin "HEAD:$(git branch --show-current)"

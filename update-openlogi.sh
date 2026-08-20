@@ -1,17 +1,31 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Fetch latest version tag from GitHub API
-LATEST_VER=$(curl -s https://api.github.com/repos/AprilNEA/OpenLogi/releases/latest | jq -r '.tag_name')
+# Fetch the latest upstream release tag.
+LATEST_VER=$(curl -fsSL https://api.github.com/repos/AprilNEA/OpenLogi/releases/latest | jq -r '.tag_name')
+if [ -z "$LATEST_VER" ] || [ "$LATEST_VER" = "null" ]; then
+    echo "Could not determine the latest OpenLogi release."
+    exit 1
+fi
 
-# Extract current version from PKGBUILD
-CURRENT_VER=$(source ./PKGBUILD && echo "$pkgver")
+# Extract the current version without evaluating PKGBUILD.
+CURRENT_VER=$(grep -m1 '^pkgver=' PKGBUILD | cut -d= -f2-)
+if [ -z "$CURRENT_VER" ]; then
+    echo "Could not determine the current package version."
+    exit 1
+fi
 
 echo "Current version: $CURRENT_VER"
 echo "Latest version:  $LATEST_VER"
 
 if [ "$CURRENT_VER" = "$LATEST_VER" ]; then
     echo "Already up to date."
+    exit 0
+fi
+
+# Do not replace a package with an older (or non-newer) upstream release.
+if [ "$(printf '%s\n%s\n' "$CURRENT_VER" "$LATEST_VER" | sort -V | tail -n1)" != "$LATEST_VER" ]; then
+    echo "Current package version is newer than the latest upstream release."
     exit 0
 fi
 
