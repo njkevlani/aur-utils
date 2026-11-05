@@ -47,7 +47,7 @@ jobs:
               su builder -c "cd /workspace/openlogi-bin && makepkg -fc --noconfirm"
               pacman -U --noconfirm /workspace/openlogi-bin/openlogi-bin-*.pkg.tar.*
               openlogi --help
-              rm -f /workspace/openlogi-bin/*.pkg.tar.* /workspace/openlogi-bin/data.tar.gz
+              rm -f /workspace/openlogi-bin/*.pkg.tar.* /workspace/openlogi-bin/data.tar.*
               chown -R "$(stat -c %u /workspace):$(stat -c %g /workspace)" /workspace/openlogi-bin
             '
 
